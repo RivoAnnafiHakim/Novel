@@ -44,6 +44,10 @@ class LoginPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Image.asset(
+                'assets/novel-high-resolution-logo-transparent.png',
+                height: 150,
+              ),
               Text('Login', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
               TextField(controller: usernameController, decoration: InputDecoration(labelText: 'Username')),
               TextField(
