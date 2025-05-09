@@ -1,3 +1,5 @@
+// Modified version of your app with 3 added features: Bookmark, Sort, Read Fullscreen
+
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 
@@ -28,12 +30,24 @@ class _NovelAppState extends State<NovelApp> {
   }
 }
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
+  final VoidCallback? onToggleTheme;
+  LoginPage({this.onToggleTheme});
+
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final VoidCallback? onToggleTheme;
 
-  LoginPage({this.onToggleTheme});
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,12 +75,12 @@ class LoginPage extends StatelessWidget {
                 onPressed: () {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => HomePage(onToggleTheme: onToggleTheme)),
+                    MaterialPageRoute(builder: (_) => HomePage(onToggleTheme: widget.onToggleTheme)),
                   );
                 },
               ),
               TextButton(
-                onPressed: onToggleTheme,
+                onPressed: widget.onToggleTheme,
                 child: Text('Toggle Dark Mode'),
               ),
             ],
@@ -82,8 +96,9 @@ class Novel {
   final String description;
   final String genre;
   final String content;
+  bool isBookmarked;
 
-  Novel(this.title, this.description, this.genre, this.content);
+  Novel(this.title, this.description, this.genre, this.content, {this.isBookmarked = false});
 }
 
 class HomePage extends StatefulWidget {
@@ -110,9 +125,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   void searchNovel(String query) {
-    final results = novels.where((novel) => novel.title.toLowerCase().contains(query.toLowerCase())).toList();
+    final trimmed = query.trim();
     setState(() {
-      displayedNovels = results;
+      displayedNovels = trimmed.isEmpty
+          ? novels
+          : novels.where((novel) => novel.title.toLowerCase().contains(trimmed.toLowerCase())).toList();
     });
   }
 
@@ -128,10 +145,7 @@ class _HomePageState extends State<HomePage> {
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginPage(onToggleTheme: widget.onToggleTheme)));
             },
           ),
-          IconButton(
-            icon: Icon(Icons.brightness_6),
-            onPressed: widget.onToggleTheme,
-          ),
+          IconButton(icon: Icon(Icons.brightness_6), onPressed: widget.onToggleTheme),
           IconButton(
             icon: Icon(Icons.category),
             onPressed: () async {
@@ -141,6 +155,21 @@ class _HomePageState extends State<HomePage> {
                   displayedNovels = novels.where((novel) => novel.genre == selectedGenre).toList();
                 });
               }
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.sort_by_alpha),
+            onPressed: () {
+              setState(() {
+                displayedNovels.sort((a, b) => a.title.compareTo(b.title));
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.bookmark),
+            onPressed: () {
+              final bookmarks = novels.where((n) => n.isBookmarked).toList();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => BookmarkPage(bookmarkedNovels: bookmarks)));
             },
           ),
           IconButton(
@@ -174,6 +203,14 @@ class _HomePageState extends State<HomePage> {
               itemBuilder: (context, index) {
                 final novel = displayedNovels[index];
                 return ListTile(
+                  leading: IconButton(
+                    icon: Icon(novel.isBookmarked ? Icons.bookmark : Icons.bookmark_border),
+                    onPressed: () {
+                      setState(() {
+                        novel.isBookmarked = !novel.isBookmarked;
+                      });
+                    },
+                  ),
                   title: Text(novel.title),
                   subtitle: Text(novel.genre),
                   trailing: PopupMenuButton<String>(
@@ -260,6 +297,7 @@ class _CreateNovelPageState extends State<CreateNovelPage> {
                     descController.text,
                     genreController.text,
                     contentController.text,
+                    isBookmarked: widget.novel?.isBookmarked ?? false,
                   );
                   widget.onCreate(novel);
                   Navigator.pop(context);
@@ -312,8 +350,60 @@ class NovelDetailPage extends StatelessWidget {
             Text(novel.description, style: TextStyle(fontSize: 16)),
             SizedBox(height: 20),
             Text(novel.content, style: TextStyle(fontSize: 14)),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => ReadNovelPage(novel: novel)));
+              },
+              child: Text('Baca Sekarang'),
+            )
           ],
         ),
+      ),
+    );
+  }
+}
+
+class ReadNovelPage extends StatelessWidget {
+  final Novel novel;
+
+  ReadNovelPage({required this.novel});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(novel.title)),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: SingleChildScrollView(
+          child: Text(novel.content, style: TextStyle(fontSize: 18)),
+        ),
+      ),
+    );
+  }
+}
+
+class BookmarkPage extends StatelessWidget {
+  final List<Novel> bookmarkedNovels;
+
+  BookmarkPage({required this.bookmarkedNovels});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Bookmark')),
+      body: ListView.builder(
+        itemCount: bookmarkedNovels.length,
+        itemBuilder: (context, index) {
+          final novel = bookmarkedNovels[index];
+          return ListTile(
+            title: Text(novel.title),
+            subtitle: Text(novel.genre),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => NovelDetailPage(novel: novel)));
+            },
+          );
+        },
       ),
     );
   }
